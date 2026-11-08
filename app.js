@@ -28,8 +28,11 @@ async function start() {
     alva = await AlvaAR.Initialize(video.videoWidth, video.videoHeight);
     statusEl.textContent = 'Listo. Pulsa Grabar.';
     requestAnimationFrame(loop);
+
   } catch (e) {
-    statusEl.textContent = 'Error: ' + e.message;
+    console.error("ERROR CRÍTICO:", e);
+    // Esto mostrará el error en pantalla en lugar de quedarse colgado
+    statusEl.textContent = '⚠️ Error: ' + (e.message || 'Fallo al cargar el motor 3D');
   }
 }
 
