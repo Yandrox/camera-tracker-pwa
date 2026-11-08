@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFExporter } from './lib/GLTFExporter.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 export async function exportToGLTF(poses) {
   const scene = new THREE.Scene();
@@ -11,14 +11,15 @@ export async function exportToGLTF(poses) {
   const posArr = poses.flatMap(p => [p.pos.x, p.pos.y, p.pos.z]);
   const rotArr = poses.flatMap(p => [p.rot.x, p.rot.y, p.rot.z, p.rot.w]);
 
-  // Three.js quiere quaternion en orden (x, y, z, w) — ya es el nuestro.
   const posTrack = new THREE.VectorKeyframeTrack('TrackedCamera.position', times, posArr);
   const rotTrack = new THREE.QuaternionKeyframeTrack('TrackedCamera.quaternion', times, rotArr);
 
   const clip = new THREE.AnimationClip('CameraTrack', times[times.length - 1], [posTrack, rotTrack]);
+  
+  // Truco para que el exportador incluya la animación
   const mixer = new THREE.AnimationMixer(cam);
   mixer.clipAction(clip).play();
-  mixer.update(0); // aplicar primer frame
+  mixer.update(0);
 
   const exporter = new GLTFExporter();
   return new Promise((resolve, reject) => {
