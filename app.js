@@ -12,7 +12,7 @@ let poses = [];
 let recording = false;
 let t0 = 0;
 
-// Inicializar Three.js (aunque sea invisible, lo necesitamos para XR)
+// Inicializar Three.js para WebXR
 renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
@@ -21,7 +21,7 @@ container.appendChild(renderer.domElement);
 scene = new THREE.Scene();
 camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
 
-// Luces básicas para que no se vea negro (opcional)
+// Luces básicas (necesarias para que Three.js no falle al renderizar)
 scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 3));
 scene.add(new THREE.DirectionalLight(0xffffff, 3));
 
@@ -30,12 +30,14 @@ async function initXR() {
     statusEl.textContent = '⚠️ Tu navegador no soporta WebXR. Usa Chrome en Android.';
     return;
   }
+  
   try {
     const supported = await navigator.xr.isSessionSupported('immersive-ar');
     if (!supported) {
       statusEl.textContent = '⚠️ Este dispositivo no soporta AR (WebXR).';
       return;
     }
+    
     statusEl.textContent = 'Solicitando sesión AR…';
     xrSession = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
@@ -44,7 +46,23 @@ async function initXR() {
     });
 
     await renderer.xr.setSession(xrSession);
-    xrRefSpace = await xrSession.requestReferenceSpace('local');
+
+    // --- SOLUCIÓN PARA EL ERROR DE REFERENCE SPACE ---
+    // Intentamos usar 'local-floor' (el más común en ARCore)
+    // Si falla, usamos 'local'
+    // Si también falla, usamos 'viewer' (siempre disponible)
+    try {
+      xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
+    } catch (e1) {
+      console.warn('local-floor no soportado, probando local…');
+      try {
+        xrRefSpace = await xrSession.requestReferenceSpace('local');
+      } catch (e2) {
+        console.warn('local no soportado, usando viewer…');
+        xrRefSpace = await xrSession.requestReferenceSpace('viewer');
+      }
+    }
+    // -------------------------------------------------
 
     xrSession.addEventListener('end', onSessionEnd);
     renderer.setAnimationLoop(onXRFrame);
@@ -59,16 +77,21 @@ async function initXR() {
 
 function onXRFrame(time, frame) {
   const pose = frame.getViewerPose(xrRefSpace);
+  
+  // Si estamos grabando y tenemos una pose válida, guardamos los datos
   if (pose && recording) {
     if (t0 === 0) t0 = time;
     const p = pose.transform.position;
     const o = pose.transform.orientation;
+    
     poses.push({
       t: (time - t0) / 1000,
       pos: { x: p.x, y: p.y, z: p.z },
       rot: { x: o.x, y: o.y, z: o.z, w: o.w }
     });
   }
+  
+  // Renderizar la escena (aunque esté vacía, mantiene viva la sesión XR)
   renderer.render(scene, camera);
 }
 
@@ -102,6 +125,7 @@ btnExp.addEventListener('click', async () => {
     statusEl.textContent = 'Graba un movimiento primero.';
     return;
   }
+  
   statusEl.textContent = 'Generando GLB…';
   try {
     const blob = await exportToGLTF(poses);
