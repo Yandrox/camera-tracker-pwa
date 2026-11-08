@@ -15,20 +15,21 @@ let lastTime = 0;
 let velocity = { x: 0, y: 0, z: 0 };
 let position = { x: 0, y: 0, z: 0 };
 let orientation = { alpha: 0, beta: 0, gamma: 0 };
-let useTranslation = true; // Cambia a false si la deriva es mucha
+let sampleInterval = null;
 
-// --- 1. Pedir permisos de sensores (iOS 13+ y algunos Android) ---
+// --- 1. Función de permisos corregida para Android ---
 async function requestSensorPermissions() {
+  // Intentamos pedir permisos solo si la API existe (iOS)
+  // Si estamos en Android, esta función no existe y pasa de largo.
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
       const perm = await DeviceOrientationEvent.requestPermission();
       if (perm !== 'granted') {
-        statusEl.textContent = 'Permiso de orientación denegado.';
-        return false;
+        console.warn('Permiso de orientación denegado en el navegador, pero continuamos por si acaso.');
       }
     } catch (e) {
-      console.warn('Error pidiendo permiso de orientación', e);
+      console.warn('Error pidiendo permiso de orientación (ignorado)', e);
     }
   }
   if (typeof DeviceMotionEvent !== 'undefined' &&
@@ -36,14 +37,13 @@ async function requestSensorPermissions() {
     try {
       const perm = await DeviceMotionEvent.requestPermission();
       if (perm !== 'granted') {
-        statusEl.textContent = 'Permiso de movimiento denegado.';
-        return false;
+        console.warn('Permiso de movimiento denegado, pero continuamos.');
       }
     } catch (e) {
-      console.warn('Error pidiendo permiso de movimiento', e);
+      console.warn('Error pidiendo permiso de movimiento (ignorado)', e);
     }
   }
-  return true;
+  // Al no devolver false, garantizamos que la grabación continúe en Android
 }
 
 // --- 2. Iniciar cámara de fondo ---
@@ -83,10 +83,10 @@ window.addEventListener('devicemotion', (event) => {
   const dt = (now - lastTime) / 1000;
   lastTime = now;
 
-  if (!recording || !useTranslation) return;
+  if (!recording) return;
 
   // Integración de la aceleración lineal (sin gravedad)
-  // Filtro paso alto para reducir la deriva
+  // Usamos un amortiguamiento (damping) para reducir la deriva acumulada
   const damping = 0.95;
   velocity.x = (velocity.x + acc.x * dt) * damping;
   velocity.y = (velocity.y + acc.y * dt) * damping;
@@ -102,20 +102,22 @@ function getQuaternion() {
   const alpha = THREE.MathUtils.degToRad(orientation.alpha);
   const beta = THREE.MathUtils.degToRad(orientation.beta);
   const gamma = THREE.MathUtils.degToRad(orientation.gamma);
+  
+  // El orden 'YXZ' es el estándar para la orientación de dispositivos móviles en Three.js
   const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
   const quat = new THREE.Quaternion().setFromEuler(euler);
   return { x: quat.x, y: quat.y, z: quat.z, w: quat.w };
 }
 
 // --- 6. Muestreo a ~30 FPS mientras se graba ---
-let sampleInterval = null;
-
 function startSampling() {
   sampleInterval = setInterval(() => {
     if (!recording) return;
+    
     const t = performance.now();
     if (t0 === 0) t0 = t;
     const relT = (t - t0) / 1000;
+    
     const q = getQuaternion();
     poses.push({
       t: relT,
@@ -132,11 +134,10 @@ function stopSampling() {
   }
 }
 
-// --- 7. Botones ---
+// --- 7. Eventos de los botones ---
 btnRec.addEventListener('click', async () => {
   if (!recording) {
-    const granted = await requestSensorPermissions();
-    if (!granted) return;
+    await requestSensorPermissions();
 
     poses = [];
     t0 = 0;
@@ -146,12 +147,14 @@ btnRec.addEventListener('click', async () => {
 
     recording = true;
     btnRec.textContent = '■ Detener';
+    btnRec.classList.add('active'); // Para la animación roja en el CSS
     statusEl.textContent = 'Grabando (mueve el teléfono)…';
     startSampling();
   } else {
     recording = false;
     btnRec.textContent = '● Grabar';
-    statusEl.textContent = `Detenido. ${poses.length} muestras.`;
+    btnRec.classList.remove('active');
+    statusEl.textContent = `Detenido. ${poses.length} muestras capturadas.`;
     stopSampling();
   }
 });
@@ -168,13 +171,13 @@ btnExp.addEventListener('click', async () => {
     a.href = URL.createObjectURL(blob);
     a.download = 'camera-track-imu.glb';
     a.click();
-    statusEl.textContent = '¡Exportado!';
+    statusEl.textContent = '¡Exportado con éxito!';
   } catch (e) {
     statusEl.textContent = 'Error al exportar: ' + e.message;
   }
 });
 
-// --- 8. Arranque ---
+// --- 8. Arranque de la aplicación ---
 startCamera();
 
 if ('serviceWorker' in navigator) {

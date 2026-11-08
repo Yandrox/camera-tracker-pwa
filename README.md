@@ -1,9 +1,9 @@
 # Camera Tracker PWA
 
-[![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8?logo=pwa&logoColor=white)](https://yandorx.github.io/camera-tracker-pwa/)
+[![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8?logo=pwa&logoColor=white)](https://yandrox.github.io/camera-tracker-pwa/)
 [![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](#)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![No Build](https://img.shields.io/badge/build-none-success)](https://yandorx.github.io/camera-tracker-pwa/)
+[![No Build](https://img.shields.io/badge/build-none-success)](https://yandrox.github.io/camera-tracker-pwa/)
 
 PWA ultraligera que convierte tu Android en una herramienta de captura de movimiento de cámara. Utiliza exclusivamente los sensores internos del dispositivo (giroscopio y acelerómetro) junto con Three.js para generar trayectorias y exportarlas como archivos `.glb` listos para importar en Prisma3D, Blender, Three.js o cualquier motor compatible con glTF.
 
@@ -11,7 +11,7 @@ PWA ultraligera que convierte tu Android en una herramienta de captura de movimi
 
 ## Demo en vivo
 
-**[Abrir Camera Tracker PWA](https://yandorx.github.io/camera-tracker-pwa/)**
+**[Abrir Camera Tracker PWA](https://yandrox.github.io/camera-tracker-pwa/)**
 
 > Abre el enlace en Chrome para Android. Desde el menú del navegador puedes usar la opción "Añadir a pantalla de inicio" para instalarla como una aplicación nativa.
 
@@ -47,7 +47,7 @@ Si prefieres la experiencia nativa, descarga el APK ya compilado desde la secci�
 
 ## Uso rápido
 
-1. Abre la PWA en Chrome (Android) desde [GitHub Pages](https://yandorx.github.io/camera-tracker-pwa/) o instala el [APK](https://github.com/Yandrox/camera-tracker-pwa/releases/).
+1. Abre la PWA en Chrome (Android) desde [GitHub Pages](https://yandrox.github.io/camera-tracker-pwa/) o instala el [APK](https://github.com/Yandrox/camera-tracker-pwa/releases/).
 2. Pulsa **Grabar** y concede los permisos de cámara y sensores cuando el navegador lo solicite.
 3. Mueve el teléfono lentamente realizando el movimiento que deseas capturar.
 4. Pulsa **Detener** y luego **Exportar GLB**.
