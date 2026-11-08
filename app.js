@@ -1,140 +1,182 @@
 import * as THREE from 'three';
 import { exportToGLTF } from './exporter.js';
 
-const container = document.getElementById('xr-container');
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
 const statusEl = document.getElementById('status');
-const btnStart = document.getElementById('btn-start');
 const btnRec = document.getElementById('btn-record');
 const btnExp = document.getElementById('btn-export');
 
-let renderer, scene, camera, xrSession, xrRefSpace;
 let poses = [];
 let recording = false;
 let t0 = 0;
+let lastTime = 0;
+let velocity = { x: 0, y: 0, z: 0 };
+let position = { x: 0, y: 0, z: 0 };
+let orientation = { alpha: 0, beta: 0, gamma: 0 };
+let useTranslation = true; // Cambia a false si la deriva es mucha
 
-// Inicializar Three.js para WebXR
-renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.xr.enabled = true;
-container.appendChild(renderer.domElement);
+// --- 1. Pedir permisos de sensores (iOS 13+ y algunos Android) ---
+async function requestSensorPermissions() {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm !== 'granted') {
+        statusEl.textContent = 'Permiso de orientación denegado.';
+        return false;
+      }
+    } catch (e) {
+      console.warn('Error pidiendo permiso de orientación', e);
+    }
+  }
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const perm = await DeviceMotionEvent.requestPermission();
+      if (perm !== 'granted') {
+        statusEl.textContent = 'Permiso de movimiento denegado.';
+        return false;
+      }
+    } catch (e) {
+      console.warn('Error pidiendo permiso de movimiento', e);
+    }
+  }
+  return true;
+}
 
-scene = new THREE.Scene();
-camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+// --- 2. Iniciar cámara de fondo ---
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: 640, height: 480 },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    statusEl.textContent = 'Listo. Pulsa "Grabar".';
+  } catch (e) {
+    statusEl.textContent = 'Error al acceder a la cámara: ' + e.message;
+  }
+}
 
-// Luces básicas (necesarias para que Three.js no falle al renderizar)
-scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 3));
-scene.add(new THREE.DirectionalLight(0xffffff, 3));
+// --- 3. Escuchar orientación (giroscopio) ---
+window.addEventListener('deviceorientation', (event) => {
+  orientation.alpha = event.alpha || 0;
+  orientation.beta = event.beta || 0;
+  orientation.gamma = event.gamma || 0;
+}, true);
 
-async function initXR() {
-  if (!navigator.xr) {
-    statusEl.textContent = '⚠️ Tu navegador no soporta WebXR. Usa Chrome en Android.';
+// --- 4. Escuchar movimiento (acelerómetro) ---
+window.addEventListener('devicemotion', (event) => {
+  const acc = event.acceleration;
+  if (!acc) return;
+
+  const now = performance.now();
+  if (lastTime === 0) {
+    lastTime = now;
     return;
   }
-  
-  try {
-    const supported = await navigator.xr.isSessionSupported('immersive-ar');
-    if (!supported) {
-      statusEl.textContent = '⚠️ Este dispositivo no soporta AR (WebXR).';
-      return;
-    }
-    
-    statusEl.textContent = 'Solicitando sesión AR…';
-    xrSession = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.body }
-    });
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
 
-    await renderer.xr.setSession(xrSession);
+  if (!recording || !useTranslation) return;
 
-    // --- SOLUCIÓN PARA EL ERROR DE REFERENCE SPACE ---
-    // Intentamos usar 'local-floor' (el más común en ARCore)
-    // Si falla, usamos 'local'
-    // Si también falla, usamos 'viewer' (siempre disponible)
-    try {
-      xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
-    } catch (e1) {
-      console.warn('local-floor no soportado, probando local…');
-      try {
-        xrRefSpace = await xrSession.requestReferenceSpace('local');
-      } catch (e2) {
-        console.warn('local no soportado, usando viewer…');
-        xrRefSpace = await xrSession.requestReferenceSpace('viewer');
-      }
-    }
-    // -------------------------------------------------
+  // Integración de la aceleración lineal (sin gravedad)
+  // Filtro paso alto para reducir la deriva
+  const damping = 0.95;
+  velocity.x = (velocity.x + acc.x * dt) * damping;
+  velocity.y = (velocity.y + acc.y * dt) * damping;
+  velocity.z = (velocity.z + acc.z * dt) * damping;
 
-    xrSession.addEventListener('end', onSessionEnd);
-    renderer.setAnimationLoop(onXRFrame);
+  position.x += velocity.x * dt;
+  position.y += velocity.y * dt;
+  position.z += velocity.z * dt;
+}, true);
 
-    btnStart.disabled = true;
-    btnRec.disabled = false;
-    statusEl.textContent = 'AR iniciada. Mueve el teléfono para trackear.';
-  } catch (e) {
-    statusEl.textContent = 'Error al iniciar AR: ' + e.message;
-  }
+// --- 5. Convertir orientación a cuaternión ---
+function getQuaternion() {
+  const alpha = THREE.MathUtils.degToRad(orientation.alpha);
+  const beta = THREE.MathUtils.degToRad(orientation.beta);
+  const gamma = THREE.MathUtils.degToRad(orientation.gamma);
+  const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+  const quat = new THREE.Quaternion().setFromEuler(euler);
+  return { x: quat.x, y: quat.y, z: quat.z, w: quat.w };
 }
 
-function onXRFrame(time, frame) {
-  const pose = frame.getViewerPose(xrRefSpace);
-  
-  // Si estamos grabando y tenemos una pose válida, guardamos los datos
-  if (pose && recording) {
-    if (t0 === 0) t0 = time;
-    const p = pose.transform.position;
-    const o = pose.transform.orientation;
-    
+// --- 6. Muestreo a ~30 FPS mientras se graba ---
+let sampleInterval = null;
+
+function startSampling() {
+  sampleInterval = setInterval(() => {
+    if (!recording) return;
+    const t = performance.now();
+    if (t0 === 0) t0 = t;
+    const relT = (t - t0) / 1000;
+    const q = getQuaternion();
     poses.push({
-      t: (time - t0) / 1000,
-      pos: { x: p.x, y: p.y, z: p.z },
-      rot: { x: o.x, y: o.y, z: o.z, w: o.w }
+      t: relT,
+      pos: { ...position },
+      rot: q
     });
+  }, 33);
+}
+
+function stopSampling() {
+  if (sampleInterval) {
+    clearInterval(sampleInterval);
+    sampleInterval = null;
   }
-  
-  // Renderizar la escena (aunque esté vacía, mantiene viva la sesión XR)
-  renderer.render(scene, camera);
 }
 
-function onSessionEnd() {
-  xrSession = null;
-  renderer.setAnimationLoop(null);
-  btnStart.disabled = false;
-  btnRec.disabled = true;
-  statusEl.textContent = 'Sesión AR finalizada.';
-}
-
-btnStart.addEventListener('click', initXR);
-
-btnRec.addEventListener('click', () => {
+// --- 7. Botones ---
+btnRec.addEventListener('click', async () => {
   if (!recording) {
+    const granted = await requestSensorPermissions();
+    if (!granted) return;
+
     poses = [];
     t0 = 0;
+    lastTime = 0;
+    velocity = { x: 0, y: 0, z: 0 };
+    position = { x: 0, y: 0, z: 0 };
+
     recording = true;
     btnRec.textContent = '■ Detener';
-    statusEl.textContent = 'Grabando trayectoria…';
+    statusEl.textContent = 'Grabando (mueve el teléfono)…';
+    startSampling();
   } else {
     recording = false;
     btnRec.textContent = '● Grabar';
-    btnExp.disabled = false;
-    statusEl.textContent = `Grabación detenida. ${poses.length} muestras.`;
+    statusEl.textContent = `Detenido. ${poses.length} muestras.`;
+    stopSampling();
   }
 });
 
 btnExp.addEventListener('click', async () => {
   if (poses.length < 2) {
-    statusEl.textContent = 'Graba un movimiento primero.';
+    statusEl.textContent = 'Graba algo primero.';
     return;
   }
-  
   statusEl.textContent = 'Generando GLB…';
   try {
     const blob = await exportToGLTF(poses);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'camera-track.glb';
+    a.download = 'camera-track-imu.glb';
     a.click();
     statusEl.textContent = '¡Exportado!';
   } catch (e) {
     statusEl.textContent = 'Error al exportar: ' + e.message;
   }
 });
+
+// --- 8. Arranque ---
+startCamera();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

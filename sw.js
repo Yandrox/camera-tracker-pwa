@@ -7,10 +7,9 @@ const ASSETS = [
   './exporter.js',
   './manifest.json',
   './icon.svg',
-  './lib/alva_ar.js',
-  './lib/alva_ar.wasm',
   './lib/three.module.js',
-  './lib/GLTFExporter.js'
+  './lib/jsm/exporters/GLTFExporter.js',
+  './lib/jsm/utils/TextureUtils.js'
 ];
 
 self.addEventListener('install', e => {

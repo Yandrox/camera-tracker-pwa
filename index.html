@@ -4,27 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Camera Tracker WebXR</title>
+  <title>Camera Tracker IMU</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
-{
-  "imports": {
-    "three": "./lib/three.module.js",
-    "three/addons/": "./lib/jsm/"
+  {
+    "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/jsm/"
+    }
   }
-}
-</script>
+  </script>
 </head>
 <body>
-  <div class="wrap" id="xr-container"></div>
-  <div class="controls">
-    <button id="btn-start">▶ Iniciar AR</button>
-    <button id="btn-record" disabled>● Grabar</button>
-    <button id="btn-export" disabled>⬇ Exportar GLB</button>
+  <div class="wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
   </div>
-  <p id="status">Pulsa "Iniciar AR" para comenzar.</p>
+  <div class="controls">
+    <button id="btn-record">● Grabar</button>
+    <button id="btn-export">⬇ Exportar GLB</button>
+  </div>
+  <p id="status">Iniciando cámara…</p>
   <script type="module" src="app.js"></script>
 </body>
 </html>
