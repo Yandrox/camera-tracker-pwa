@@ -1,4 +1,4 @@
-const CACHE = 'camtracker-v1';
+const CACHE = 'camtracker-v16';
 const ASSETS = [
   './',
   './index.html',
@@ -6,10 +6,7 @@ const ASSETS = [
   './app.js',
   './exporter.js',
   './manifest.json',
-  './icon.svg',
-  './lib/three.module.js',
-  './lib/jsm/exporters/GLTFExporter.js',
-  './lib/jsm/utils/TextureUtils.js'
+  './icon.svg'
 ];
 
 self.addEventListener('install', e => {
