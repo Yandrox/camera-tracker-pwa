@@ -1,153 +1,152 @@
-/* --- Reset y Variables Globales --- */
 :root {
-  --bg-color: #0f172a;
-  --panel-color: #1e293b;
-  --text-color: #e2e8f0;
-  --text-muted: #94a3b8;
-  --btn-record: #dc2626;
-  --btn-record-hover: #b91c1c;
-  --btn-export: #2563eb;
-  --btn-export-hover: #1d4ed8;
+  --text: #f1f5f9;
+  --panel: rgba(15, 23, 42, 0.62);
+  --panel-border: rgba(255, 255, 255, 0.22);
+  --rec: #dc2626;
+  --rec-dark: #991b1b;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  -webkit-tap-highlight-color: transparent; /* Quita el cuadro azul al tocar en móvil */
+  -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px 16px;
-  gap: 20px;
-  touch-action: manipulation; /* Evita el zoom con doble toque */
-}
-
-/* --- Contenedor del Video y Canvas --- */
-.wrap {
-  position: relative;
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 4 / 3; /* Mantiene la proporción de la cámara */
-  background-color: #000;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-#video, #overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
+html, body {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Llena el contenedor sin deformar */
+  overflow: hidden;
+  background: #000;
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  touch-action: manipulation;
 }
 
-#overlay {
-  pointer-events: none; /* Permite pulsar a través del canvas si fuera necesario */
-  z-index: 2;
-}
-
+/* Camara a pantalla completa */
 #video {
-  z-index: 1;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
 }
 
-/* --- Controles (Botones) --- */
-.controls {
+/* Barra superior flotante: estado + boton Info */
+.top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
-  gap: 16px;
-  width: 100%;
-  max-width: 500px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0;
+  pointer-events: none;
+}
+
+#status {
+  flex: 1;
+  max-height: 30vh;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  font-size: 13px;
+  line-height: 1.35;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Panel de diagnostico (se muestra con el boton Info) */
+#diag {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 74px);
+  max-height: 40vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Botones flotantes inferiores */
+.bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  z-index: 10;
+  gap: 14px;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 22px);
 }
 
 button {
-  flex: 1;
-  padding: 16px 20px;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
-  background-color: var(--panel-color);
+  font: inherit;
+  color: var(--text);
+  border: 0;
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.2s ease, opacity 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.96); /* Efecto de hundido al tocar */
+.chip,
+.side {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.chip {
+  pointer-events: auto;
+  min-width: 56px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  font-size: 13px;
 }
 
-/* Estilos específicos para el botón de Grabar */
+.side {
+  flex: 1 1 0;
+  max-width: 130px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 24px;
+  font-size: 13px;
+}
+
 #btn-record {
-  background-color: var(--panel-color);
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--rec);
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 #btn-record.active {
-  background-color: var(--btn-record);
-  animation: pulse 2s infinite; /* Efecto de latido mientras graba */
+  background: var(--rec-dark);
+  animation: pulse 1.2s infinite;
 }
 
-#btn-record:active:not(:disabled) {
-  background-color: var(--btn-record-hover);
-}
-
-/* Estilos específicos para el botón de Exportar */
-#btn-export {
-  background-color: var(--btn-export);
-}
-
-#btn-export:active:not(:disabled) {
-  background-color: var(--btn-export-hover);
-}
-
-/* --- Texto de Estado --- */
-#status {
-  font-size: 14px;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 12px 16px;
-  background-color: rgba(30, 41, 59, 0.4);
-  border-radius: 10px;
-  width: 100%;
-  max-width: 500px;
-  line-height: 1.5;
-  border: 1px solid rgba(255, 255, 255, 0.02);
-  min-height: 48px; /* Evita que la interfaz salte cuando cambia el texto */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* --- Animación del botón Grabar --- */
 @keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
-  }
+  0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+  70%  { box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#0f172a" />
   <title>Camera Tracker IMU</title>
   <link rel="manifest" href="manifest.json" />
@@ -10,15 +10,20 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="wrap">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
+  <video id="video" autoplay playsinline muted></video>
+
+  <div class="top">
+    <p id="status">Iniciando camara...</p>
+    <button id="btn-info" class="chip" type="button">Info</button>
   </div>
-  <div class="controls">
-    <button id="btn-record">● Grabar</button>
-    <button id="btn-export">⬇ Exportar GLTF</button>
+  <pre id="diag" class="hidden"></pre>
+
+  <div class="bottom">
+    <button id="btn-export" class="side" type="button">Exportar</button>
+    <button id="btn-record" type="button">Grabar</button>
+    <button id="btn-export-bone" class="side" type="button">Exportar hueso</button>
   </div>
-  <p id="status">Iniciando cámara…</p>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

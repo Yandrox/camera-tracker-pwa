@@ -1,18 +1,12 @@
 import { exportToGLTF } from './exporter.js';
 
 const video = document.getElementById('video');
-const overlay = document.getElementById('overlay');
 const statusEl = document.getElementById('status');
+const diagEl = document.getElementById('diag');
 const btnRec = document.getElementById('btn-record');
 const btnExp = document.getElementById('btn-export');
-
-btnRec.textContent = 'Grabar';
-btnExp.textContent = 'Exportar GLTF';
-
-// Panel de diagnostico: muestra en vivo si los sensores entregan datos
-const diagEl = document.createElement('p');
-diagEl.style.cssText = 'font:12px monospace;color:#94a3b8;white-space:pre-wrap;text-align:center;max-width:500px';
-statusEl.after(diagEl);
+const btnExpBone = document.getElementById('btn-export-bone');
+const btnInfo = document.getElementById('btn-info');
 
 let poses = [];
 let recording = false;
@@ -101,13 +95,11 @@ async function requestSensorPermissions() {
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: 640, height: 480 },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
     video.srcObject = stream;
     await video.play();
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
     statusEl.textContent = 'Listo. Pulsa "Grabar".';
   } catch (e) {
     statusEl.textContent = 'Error al acceder a la camara: ' + e.message;
@@ -211,7 +203,14 @@ function sensorAdvice() {
 }
 const t0Page = performance.now();
 
+let infoAutoShown = false;
+btnInfo.addEventListener('click', () => diagEl.classList.toggle('hidden'));
+
 setInterval(() => {
+  if (recording) {
+    const secs = poses.length ? poses[poses.length - 1].t : 0;
+    statusEl.textContent = 'Grabando: ' + secs.toFixed(1) + ' s';
+  }
   diagEl.textContent =
     'Giroscopio: ' + oriCount + ' eventos\n' +
     'alpha ' + f(orientation.alpha) + '  beta ' + f(orientation.beta) + '  gamma ' + f(orientation.gamma) + '\n' +
@@ -225,6 +224,10 @@ setInterval(() => {
     (oriCount === 0 && motCount === 0 && performance.now() - t0Page > 2500
       ? '\n>> ' + sensorAdvice()
       : '');
+  if (!infoAutoShown && oriCount === 0 && motCount === 0 && performance.now() - t0Page > 2500) {
+    infoAutoShown = true;
+    diagEl.classList.remove('hidden');
+  }
 }, 250);
 
 btnRec.addEventListener('click', async () => {
@@ -262,13 +265,6 @@ btnRec.addEventListener('click', async () => {
   }
 });
 
-// Segundo boton (creado por codigo): exporta solo la rotacion, sin traslacion
-const btnExpRot = document.createElement('button');
-btnExpRot.id = 'btn-export-rot';
-btnExpRot.className = btnExp.className;
-btnExpRot.textContent = 'Exportar solo rotacion';
-btnExp.after(btnExpRot);
-
 async function doExport(opts, fileName) {
   if (poses.length < 2) { statusEl.textContent = 'Graba algo primero.'; return; }
   statusEl.textContent = 'Generando GLTF...';
@@ -282,19 +278,16 @@ async function doExport(opts, fileName) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    let maxDist = 0;
-    for (const p of poses) maxDist = Math.max(maxDist, Math.hypot(p.pos.x, p.pos.y, p.pos.z));
     statusEl.textContent = 'Exportado ' + fileName + ': ' + poses.length + ' muestras.' +
-      (opts.rotationOnly ? ' Sin traslacion.' : ' Desplazamiento maximo del cono: ' + f(maxDist) + ' unidades.') +
       (rotChanged ? '' : ' Aviso: la rotacion es constante.') +
-      (!opts.rotationOnly && !posChanged ? ' Aviso: la posicion es constante.' : '');
+      (posChanged ? '' : ' Aviso: la posicion es constante.');
   } catch (e) {
     statusEl.textContent = 'Error al exportar: ' + e.message;
   }
 }
 
 btnExp.addEventListener('click', () => doExport({}, 'camera-track.gltf'));
-btnExpRot.addEventListener('click', () => doExport({ rotationOnly: true }, 'camera-track-solo-rotacion.gltf'));
+btnExpBone.addEventListener('click', () => doExport({ skeleton: true }, 'camera-track-hueso.gltf'));
 
 startCamera();
 
