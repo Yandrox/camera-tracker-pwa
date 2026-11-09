@@ -58,7 +58,8 @@ function minMax3(arr) {
   return { min: mn, max: mx };
 }
 
-export async function exportToGLTF(poses) {
+export async function exportToGLTF(poses, opts = {}) {
+  const rotOnly = !!opts.rotationOnly;
   if (!poses || poses.length < 2) {
     throw new Error('Se necesitan al menos 2 poses para animar.');
   }
@@ -88,7 +89,7 @@ export async function exportToGLTF(poses) {
   const rots = new Float32Array(count * 4);
   clean.forEach((p, i) => {
     times[i] = p.t;
-    trans[i * 3] = p.pos.x; trans[i * 3 + 1] = p.pos.y; trans[i * 3 + 2] = p.pos.z;
+    if (!rotOnly) { trans[i * 3] = p.pos.x; trans[i * 3 + 1] = p.pos.y; trans[i * 3 + 2] = p.pos.z; }
     rots[i * 4] = p.rot.x; rots[i * 4 + 1] = p.rot.y; rots[i * 4 + 2] = p.rot.z; rots[i * 4 + 3] = p.rot.w;
   });
 
@@ -142,7 +143,7 @@ export async function exportToGLTF(poses) {
         name: 'Camara',
         rotation: [clean[0].rot.x, clean[0].rot.y, clean[0].rot.z, clean[0].rot.w],
         scale: [1.0, 1.0, 1.0],
-        translation: [clean[0].pos.x, clean[0].pos.y, clean[0].pos.z]
+        translation: rotOnly ? [0, 0, 0] : [clean[0].pos.x, clean[0].pos.y, clean[0].pos.z]
       }
     ],
     scenes: [{ nodes: [0] }]

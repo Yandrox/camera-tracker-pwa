@@ -262,26 +262,39 @@ btnRec.addEventListener('click', async () => {
   }
 });
 
-btnExp.addEventListener('click', async () => {
+// Segundo boton (creado por codigo): exporta solo la rotacion, sin traslacion
+const btnExpRot = document.createElement('button');
+btnExpRot.id = 'btn-export-rot';
+btnExpRot.className = btnExp.className;
+btnExpRot.textContent = 'Exportar solo rotacion';
+btnExp.after(btnExpRot);
+
+async function doExport(opts, fileName) {
   if (poses.length < 2) { statusEl.textContent = 'Graba algo primero.'; return; }
   statusEl.textContent = 'Generando GLTF...';
   try {
-    const blob = await exportToGLTF(poses);
+    const blob = await exportToGLTF(poses, opts);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'camera-track.gltf';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    statusEl.textContent = 'Exportado: ' + poses.length + ' muestras.' +
+    let maxDist = 0;
+    for (const p of poses) maxDist = Math.max(maxDist, Math.hypot(p.pos.x, p.pos.y, p.pos.z));
+    statusEl.textContent = 'Exportado ' + fileName + ': ' + poses.length + ' muestras.' +
+      (opts.rotationOnly ? ' Sin traslacion.' : ' Desplazamiento maximo del cono: ' + f(maxDist) + ' unidades.') +
       (rotChanged ? '' : ' Aviso: la rotacion es constante.') +
-      (posChanged ? '' : ' Aviso: la posicion es constante.');
+      (!opts.rotationOnly && !posChanged ? ' Aviso: la posicion es constante.' : '');
   } catch (e) {
     statusEl.textContent = 'Error al exportar: ' + e.message;
   }
-});
+}
+
+btnExp.addEventListener('click', () => doExport({}, 'camera-track.gltf'));
+btnExpRot.addEventListener('click', () => doExport({ rotationOnly: true }, 'camera-track-solo-rotacion.gltf'));
 
 startCamera();
 
