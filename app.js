@@ -164,12 +164,12 @@ btnExp.addEventListener('click', async () => {
     statusEl.textContent = 'Graba algo primero.';
     return;
   }
-  statusEl.textContent = 'Generando GLB…';
+  statusEl.textContent = 'Generando GLTF…';
   try {
     const blob = await exportToGLTF(poses);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'camera-track-imu.glb';
+    a.download = 'camera-track-imu.gltf';
     a.click();
     statusEl.textContent = '¡Exportado con éxito!';
   } catch (e) {
