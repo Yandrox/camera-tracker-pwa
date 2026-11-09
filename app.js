@@ -23,6 +23,7 @@ let velocity = { x: 0, y: 0, z: 0 };
 let position = { x: 0, y: 0, z: 0 };
 let orientation = { alpha: 0, beta: 0, gamma: 0 };
 let alphaRef = 0;
+let iosPermission = null;
 let gravity = null;
 let oriCount = 0;
 let motCount = 0;
@@ -80,12 +81,21 @@ function getQuaternion() {
   return eulerToQuat(orientation.alpha - alphaRef, orientation.beta, orientation.gamma);
 }
 
+// Solicitud de permisos. iOS/Safari exige llamarla dentro de un toque del usuario;
+// Android/Chrome no tiene aviso (usa el ajuste del sitio); WebView depende de la app contenedora.
+// Se lanzan ambas peticiones en el mismo instante para no perder el gesto del usuario.
 async function requestSensorPermissions() {
+  const reqs = [];
   for (const Ev of [window.DeviceOrientationEvent, window.DeviceMotionEvent]) {
     if (Ev && typeof Ev.requestPermission === 'function') {
-      try { await Ev.requestPermission(); } catch (e) { /* se ignora */ }
+      try { reqs.push(Ev.requestPermission()); } catch (e) { reqs.push(Promise.resolve('error')); }
     }
   }
+  if (!reqs.length) return 'no-requerido';
+  const res = await Promise.allSettled(reqs);
+  const states = res.map((r) => (r.status === 'fulfilled' ? r.value : 'error'));
+  iosPermission = states.includes('granted') ? 'granted' : (states[0] || 'error');
+  return iosPermission;
 }
 
 async function startCamera() {
@@ -167,13 +177,54 @@ function stopSampling() {
 
 function f(v) { return (Math.round(v * 100) / 100).toFixed(2); }
 
+// Diagnostico del entorno: explica POR QUE no llegan sensores
+const UA = navigator.userAgent;
+const isIOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isWebView = /; wv\)/.test(UA) || /Version\/[\d.]+ Chrome/.test(UA);
+const isBrave = !!navigator.brave;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+const permState = {};
+let permText = 'permisos: consultando...';
+(async () => {
+  const out = [];
+  for (const n of ['accelerometer', 'gyroscope', 'magnetometer']) {
+    try {
+      const r = await navigator.permissions.query({ name: n });
+      permState[n] = r.state;
+      out.push(n + '=' + r.state);
+    } catch (e) {
+      out.push(n + '=n/d');
+    }
+  }
+  permText = 'permisos: ' + out.join(' ');
+})();
+
+// Devuelve la accion concreta segun el entorno detectado
+function sensorAdvice() {
+  if (!window.isSecureContext) return 'La pagina no esta en HTTPS y el navegador bloquea los sensores. Usa la URL https de GitHub Pages.';
+  if (isIOS && iosPermission === null) return 'iOS pide el permiso solo despues de un toque: pulsa Grabar y acepta.';
+  if (isIOS && iosPermission !== 'granted' && iosPermission !== 'no-requerido') return 'Safari nego el acceso. Si no vuelve a preguntar: Ajustes > Safari > Borrar historial y datos, y abre la pagina de nuevo.';
+  if (isWebView) return 'Esta app (WebView/APK) no entrega sensores. Abre la URL en Chrome.';
+  if (permState.accelerometer === 'denied' || permState.gyroscope === 'denied') return 'Permiso bloqueado. Chrome: candado de la barra > Permisos > Sensores de movimiento = Permitir.';
+  if (isBrave) return 'Brave bloquea los sensores: desactiva Shields para este sitio o usa Chrome.';
+  return 'El navegador no envia eventos. Revisa que los sensores del telefono esten activos (ajustes rapidos) y prueba en Chrome.';
+}
+const t0Page = performance.now();
+
 setInterval(() => {
   diagEl.textContent =
     'Giroscopio: ' + oriCount + ' eventos\n' +
     'alpha ' + f(orientation.alpha) + '  beta ' + f(orientation.beta) + '  gamma ' + f(orientation.gamma) + '\n' +
     'Acelerometro: ' + motCount + ' eventos (' + lastAcc.src + ')\n' +
     'acc ' + f(lastAcc.x) + '  ' + f(lastAcc.y) + '  ' + f(lastAcc.z) + '\n' +
-    'Muestras grabadas: ' + poses.length;
+    'Muestras grabadas: ' + poses.length + '\n' +
+    'HTTPS/seguro: ' + (window.isSecureContext ? 'si' : 'NO') +
+    '  WebView: ' + (isWebView ? 'si' : 'no') +
+    '  Instalada: ' + (isStandalone ? 'si' : 'no') + '\n' +
+    permText +
+    (oriCount === 0 && motCount === 0 && performance.now() - t0Page > 2500
+      ? '\n>> ' + sensorAdvice()
+      : '');
 }, 250);
 
 btnRec.addEventListener('click', async () => {
@@ -203,7 +254,7 @@ btnRec.addEventListener('click', async () => {
     const nOri = oriCount - oriAtStart;
     const nMot = motCount - motAtStart;
     let msg = 'Detenido. ' + poses.length + ' muestras. Giroscopio: ' + nOri + ' eventos. Acelerometro: ' + nMot + ' eventos.';
-    if (nOri === 0) msg += ' SIN datos de giroscopio: el navegador no los entrega.';
+    if (nOri === 0) msg += ' SIN datos de giroscopio. ' + sensorAdvice();
     else if (!rotChanged) msg += ' La rotacion no cambio: no moviste el telefono.';
     if (nMot === 0) msg += ' SIN datos de acelerometro.';
     else if (!posChanged) msg += ' La posicion no cambio.';

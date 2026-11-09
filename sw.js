@@ -1,4 +1,4 @@
-const CACHE = 'camtracker-v16';
+const CACHE = 'camtracker-v18';
 const ASSETS = [
   './',
   './index.html',
