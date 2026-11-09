@@ -1,7 +1,5 @@
 // Exporter glTF 2.0 sin librerias.
-// Modo normal: la animacion va directo al nodo de la malla (estructura de Prisma3D).
-// Modo hueso (opts.skeleton): la malla esta enlazada a un hueso (skin) y la animacion va al hueso,
-// igual que en los personajes de Mixamo. Ambos modos generan los mismos datos de animacion.
+// La animacion va directo al nodo de la malla (estructura de Prisma3D).
 
 function toBase64(typed) {
   const bytes = new Uint8Array(typed.buffer, typed.byteOffset, typed.byteLength);
@@ -59,8 +57,7 @@ function minMax3(arr) {
   return { min: mn, max: mx };
 }
 
-export async function exportToGLTF(poses, opts = {}) {
-  const skeleton = !!opts.skeleton;
+export async function exportToGLTF(poses) {
   if (!poses || poses.length < 2) {
     throw new Error('Se necesitan al menos 2 poses para animar.');
   }
@@ -117,35 +114,9 @@ export async function exportToGLTF(poses, opts = {}) {
   const attributes = { NORMAL: 1, POSITION: 0, TEXCOORD_0: 2 };
   const q0 = [clean[0].rot.x, clean[0].rot.y, clean[0].rot.z, clean[0].rot.w];
   const p0 = [clean[0].pos.x, clean[0].pos.y, clean[0].pos.z];
-  let nodes, scenes, skins, animNode;
-
-  if (skeleton) {
-    // Todos los vertices dependen al 100% del hueso 0
-    const joints = new Uint8Array(nv * 4);
-    const weights = new Float32Array(nv * 4);
-    for (let i = 0; i < nv; i++) weights[i * 4] = 1;
-    const ibm = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
-    data.push(joints, weights, ibm);
-    targets.push(34962, 34962, null);
-    accessors.push(
-      { bufferView: 8, componentType: 5121, count: nv, type: 'VEC4' },
-      { bufferView: 9, componentType: 5126, count: nv, type: 'VEC4' },
-      { bufferView: 10, componentType: 5126, count: 1, type: 'MAT4' }
-    );
-    attributes.JOINTS_0 = 8;
-    attributes.WEIGHTS_0 = 9;
-    nodes = [
-      { mesh: 0, skin: 0, name: 'Camara', rotation: [0, 0, 0, 1], scale: [1, 1, 1], translation: [0, 0, 0] },
-      { name: 'Hueso', rotation: q0, scale: [1, 1, 1], translation: p0 }
-    ];
-    scenes = [{ nodes: [0, 1] }];
-    skins = [{ inverseBindMatrices: 10, joints: [1], skeleton: 1, name: 'Esqueleto' }];
-    animNode = 1;
-  } else {
-    nodes = [{ mesh: 0, name: 'Camara', rotation: q0, scale: [1, 1, 1], translation: p0 }];
-    scenes = [{ nodes: [0] }];
-    animNode = 0;
-  }
+  const nodes = [{ mesh: 0, name: 'Camara', rotation: q0, scale: [1, 1, 1], translation: p0 }];
+  const scenes = [{ nodes: [0] }];
+  const animNode = 0;
 
   const gltf = {
     accessors: accessors,
@@ -178,7 +149,6 @@ export async function exportToGLTF(poses, opts = {}) {
     scene: 0,
     scenes: scenes
   };
-  if (skins) gltf.skins = skins;
 
   return new Blob([JSON.stringify(gltf, null, 2)], { type: 'model/gltf+json' });
 }

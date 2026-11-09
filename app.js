@@ -5,7 +5,6 @@ const statusEl = document.getElementById('status');
 const diagEl = document.getElementById('diag');
 const btnRec = document.getElementById('btn-record');
 const btnExp = document.getElementById('btn-export');
-const btnExpBone = document.getElementById('btn-export-bone');
 const btnInfo = document.getElementById('btn-info');
 
 let poses = [];
@@ -265,11 +264,11 @@ btnRec.addEventListener('click', async () => {
   }
 });
 
-async function doExport(opts, fileName) {
+async function doExport(fileName) {
   if (poses.length < 2) { statusEl.textContent = 'Graba algo primero.'; return; }
   statusEl.textContent = 'Generando GLTF...';
   try {
-    const blob = await exportToGLTF(poses, opts);
+    const blob = await exportToGLTF(poses);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -286,8 +285,7 @@ async function doExport(opts, fileName) {
   }
 }
 
-btnExp.addEventListener('click', () => doExport({}, 'camera-track.gltf'));
-btnExpBone.addEventListener('click', () => doExport({ skeleton: true }, 'camera-track-hueso.gltf'));
+btnExp.addEventListener('click', () => doExport('camera-track.gltf'));
 
 startCamera();
 
